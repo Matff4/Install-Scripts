@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Ubuntu Post-Install Interactive Setup Script
-# Execution: bash -c "$(curl -fsSL https://github.com/Matff4/Install-Scripts/main/ubuntu-fresh-install.sh)"
+# Execution: bash -c "$(curl -fsSL https://raw.githubusercontent.com/Matff4/Install-Scripts/refs/heads/main/ubuntu-fresh-install.sh)"
 
 set -e
 
