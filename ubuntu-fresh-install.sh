@@ -14,45 +14,45 @@ function print_success() {
   echo "${GREEN}[✓]${RESET} $1"
 }
 
-# Initial update and upgrade (no prompt)
+# Initial update and upgrade (no prompt, silent)
 function initial_update_upgrade() {
   print_success "Updating package lists..."
-  apt-get update -y
+  apt-get update -y > /dev/null 2>&1
   print_success "Upgrading packages..."
-  apt-get upgrade -y
+  apt-get upgrade -y > /dev/null 2>&1
 }
 
 # Individual software installation functions
 function install_docker() {
   print_success "Installing Docker..."
-  apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+  apt-get install -y apt-transport-https ca-certificates curl software-properties-common > /dev/null 2>&1
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
   echo \
     "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
     https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
     | tee /etc/apt/sources.list.d/docker.list > /dev/null
-  apt-get update
-  apt-get install -y docker-ce docker-ce-cli containerd.io
+  apt-get update > /dev/null 2>&1
+  apt-get install -y docker-ce docker-ce-cli containerd.io > /dev/null 2>&1
   usermod -aG docker "$SUDO_USER"
   print_success "Docker has been installed."
 }
 
 function install_cockpit() {
   print_success "Installing Cockpit..."
-  apt-get install -y cockpit cockpit-podman cockpit-networkmanager
-  systemctl enable --now cockpit.socket
+  apt-get install -y cockpit cockpit-podman cockpit-networkmanager > /dev/null 2>&1
+  systemctl enable --now cockpit.socket > /dev/null 2>&1
   print_success "Cockpit is now installed and enabled."
 }
 
 function install_zfs() {
   print_success "Installing ZFS..."
-  apt-get install -y zfsutils-linux
+  apt-get install -y zfsutils-linux > /dev/null 2>&1
   print_success "ZFS utilities installed."
 }
 
 function install_common_tools() {
   print_success "Installing common CLI tools..."
-  apt-get install -y htop vim curl wget git net-tools unzip gnupg2
+  apt-get install -y htop vim curl wget git net-tools unzip gnupg2 > /dev/null 2>&1
   print_success "Common utilities installed."
 }
 
