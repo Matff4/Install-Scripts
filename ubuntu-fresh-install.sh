@@ -58,10 +58,22 @@ function install_common_tools() {
 
 # Add more software installation functions here as needed
 
-# Display prompt for user to select software to install
+# Display prompt for user to select software to install (centered)
 function show_install_menu() {
+  # Get terminal dimensions
+  terminal_width=$(tput cols)
+  terminal_height=$(tput lines)
+  
+  # Calculate dialog dimensions (approximately centered)
+  dialog_width=78
+  dialog_height=20
+  x_offset=$(( (terminal_width - dialog_width) / 2 ))
+  y_offset=$(( (terminal_height - dialog_height) / 2 ))
+
+  # Show checklist using whiptail
   OPTIONS=$(whiptail --title "Ubuntu Fresh Setup" --checklist \
-  "Select software to install (use space to select):" 20 78 10 \
+  "Select software to install (use space to select):" \
+  "$dialog_height" "$dialog_width" 10 \
   "docker"   "Install Docker"      ON \
   "cockpit"  "Install Cockpit"     ON \
   "zfs"      "Install ZFS tools"   OFF \
