@@ -3,96 +3,98 @@
 # Ubuntu Post-Install Interactive Setup Script
 # Execution: bash -c "$(curl -fsSL https://raw.githubusercontent.com/Matff4/Install-Scripts/refs/heads/main/ubuntu-fresh-install.sh)"
 
-set -e
+set -euo pipefail
 
-# Colors for output
-GREEN=$(tput setaf 2)
-RESET=$(tput sgr0)
+# ─── 1) Silent APT update & upgrade ─────────────────────────────────────────────
+apt-get update  -y > /dev/null 2>&1
+apt-get upgrade -y > /dev/null 2>&1
 
-# Utility functions
-function print_success() {
-  echo "${GREEN}[✓]${RESET} $1"
+# ─── 2) Ensure dialog is installed ───────────────────────────────────────────────
+if ! command -v dialog &>/dev/null; then
+  apt-get install -y dialog > /dev/null 2>&1
+fi
+
+# ─── 3) Helpers ──────────────────────────────────────────────────────────────────
+GREEN=$(tput setaf 2); BLUE=$(tput setaf 4); RESET=$(tput sgr0)
+print_success() { echo "${GREEN}[✓]${RESET} $1"; }
+print_info() { echo "${BLUE}[?]${RESET} $1"; }
+
+# ─── 4) Installer functions ──────────────────────────────────────────────────────
+install_basic_software() {
+  print_info "Installing basic software..."
+  apt-get install -y \
+    neofetch \
+    bmon \
+    git \
+    tree \
+    > /dev/null 2>&1
+  print_success "Basic software installed."
 }
 
-# Initial update and upgrade (no prompt, silent)
-function initial_update_upgrade() {
-  print_success "Updating package lists..."
-  apt-get update -y > /dev/null 2>&1
-  print_success "Upgrading packages..."
-  apt-get upgrade -y > /dev/null 2>&1
+install_qemu_guest_agent() {
+  print_info "Installing QEMU Guest Agent..."
+  apt-get install -y qemu-guest-agent > /dev/null 2>&1
+  systemctl enable --now qemu-guest-agent > /dev/null 2>&1
+  print_success "QEMU Guest Agent installed and enabled."
 }
 
-# Individual software installation functions
-function install_docker() {
-  print_success "Installing Docker..."
-  apt-get install -y apt-transport-https ca-certificates curl software-properties-common > /dev/null 2>&1
-  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+install_auto_updates() {
+  print_info "Enabling automatic apt updates..."
+  apt-get install -y unattended-upgrades apt-listchanges > /dev/null 2>&1
+  dpkg-reconfigure --frontend noninteractive unattended-upgrades > /dev/null 2>&1
+  systemctl enable --now unattended-upgrades > /dev/null 2>&1
+  # Ensure all updates, not just security
+  sed -i 's@//\s*"\${distro_id}:\${distro_codename}";@"${distro_id}:${distro_codename}";@' /etc/apt/apt.conf.d/50unattended-upgrades
+  print_success "Automatic apt updates enabled and configured to install all updates."
+}
+
+install_docker() {
+  print_info "Installing Docker Engine..."
+
+  apt-get install -y ca-certificates curl gnupg > /dev/null 2>&1
+  install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+    | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  chmod a+r /etc/apt/keyrings/docker.gpg
+
   echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
-    https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
-    | tee /etc/apt/sources.list.d/docker.list > /dev/null
-  apt-get update > /dev/null 2>&1
-  apt-get install -y docker-ce docker-ce-cli containerd.io > /dev/null 2>&1
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+    > /etc/apt/sources.list.d/docker.list
+
+  apt-get update -y > /dev/null 2>&1
+  apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin > /dev/null 2>&1
+
   usermod -aG docker "$SUDO_USER"
-  print_success "Docker has been installed."
+
+  print_success "Docker installed and user '$SUDO_USER' added to docker group."
 }
 
-function install_cockpit() {
-  print_success "Installing Cockpit..."
-  apt-get install -y cockpit cockpit-podman cockpit-networkmanager > /dev/null 2>&1
-  systemctl enable --now cockpit.socket > /dev/null 2>&1
-  print_success "Cockpit is now installed and enabled."
-}
 
-function install_zfs() {
-  print_success "Installing ZFS..."
-  apt-get install -y zfsutils-linux > /dev/null 2>&1
-  print_success "ZFS utilities installed."
-}
+# ─── 5) Show checklist ───────────────────────────────────────────────────────────
+HEIGHT=15; WIDTH=75; LIST_HEIGHT=8
 
-function install_common_tools() {
-  print_success "Installing common CLI tools..."
-  apt-get install -y htop vim curl wget git net-tools unzip gnupg2 > /dev/null 2>&1
-  print_success "Common utilities installed."
-}
+dialog --clear \
+  --title "Ubuntu Fresh Setup" \
+  --checklist "Select items to install:" \
+    $HEIGHT $WIDTH $LIST_HEIGHT \
+    1 "[Basic software] (neofetch, bmon, git, tree)" ON \
+    2 "[QEMU Guest Agent] (qemu-guest-agent)" ON \
+    3 "[Automatic updates] (unattended-upgrades)" ON \
+    4 "[Docker] (Engine, CLI, containerd)" OFF \
+  2> /tmp/choices.$$
 
-# Add more software installation functions here as needed
+# ─── 6) Read & dispatch ──────────────────────────────────────────────────────────
+SELECTIONS=$(< /tmp/choices.$$)
+rm /tmp/choices.$$
 
-# Display prompt for user to select software to install (centered)
-function show_install_menu() {
-  # Get terminal dimensions
-  terminal_width=$(tput cols)
-  terminal_height=$(tput lines)
-  
-  # Calculate dialog dimensions (approximately centered)
-  dialog_width=78
-  dialog_height=20
-  x_offset=$(( (terminal_width - dialog_width) / 2 ))
-  y_offset=$(( (terminal_height - dialog_height) / 2 ))
+for tag in $SELECTIONS; do
+  case "$tag" in
+    1) install_basic_software ;;
+    2) install_qemu_guest_agent ;;
+    3) install_auto_updates ;;
+    4) install_docker ;;
+  esac
+done
 
-  # Show checklist using whiptail
-  OPTIONS=$(whiptail --title "Ubuntu Fresh Setup" --checklist \
-  "Select software to install (use space to select):" \
-  "$dialog_height" "$dialog_width" 10 \
-  "docker"   "Install Docker"      ON \
-  "cockpit"  "Install Cockpit"     ON \
-  "zfs"      "Install ZFS tools"   OFF \
-  "tools"    "Install common tools" ON \
-  3>&1 1>&2 2>&3)
-
-  # Check for the selected options and run corresponding functions
-  for option in $OPTIONS; do
-    case $option in
-      \"docker\") install_docker ;;
-      \"cockpit\") install_cockpit ;;
-      \"zfs\") install_zfs ;;
-      \"tools\") install_common_tools ;;
-    esac
-  done
-
-  print_success "All selected packages have been installed!"
-}
-
-# Main execution flow
-initial_update_upgrade
-show_install_menu
+print_success "All selected items have been installed!"
