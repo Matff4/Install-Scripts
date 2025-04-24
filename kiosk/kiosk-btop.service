@@ -1,4 +1,7 @@
 # /etc/systemd/system/kiosk-btop.service
+#
+# Disable default tty1: systemctl mask getty@tty1.service
+# Enable btop on tty1:  systemctl enable --now kiosk-btop.service
 [Unit]
 Description=Kiosk btop dashboard on tty1
 After=local-fs.target
