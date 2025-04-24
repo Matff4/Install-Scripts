@@ -1,0 +1,29 @@
+# /etc/systemd/system/kiosk-btop.service
+[Unit]
+Description=Kiosk btop dashboard on tty1
+After=local-fs.target
+Conflicts=getty@tty1.service
+
+[Service]
+ExecStart=/usr/bin/btop
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+
+Restart=always
+RestartSec=1
+
+# ─── basic sandboxing ────────────────────────────
+NoNewPrivileges=yes
+ProtectSystem=full        # /usr, /boot, /etc read-only
+ProtectHome=read-only     # /home & /root read-only
+PrivateTmp=yes            # isolated /tmp
+# give just tty1
+DeviceAllow=/dev/tty1 rw
+# drop all Linux capabilities
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
