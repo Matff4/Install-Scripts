@@ -24,7 +24,7 @@ install_basic_software() {
   print_info "Installing basic software..."
   apt-get install -y \
     neofetch \
-    bmon \
+    btop \
     git \
     tree \
     > /dev/null 2>&1
@@ -78,7 +78,7 @@ dialog --clear \
   --title "Ubuntu Fresh Setup" \
   --checklist "Select items to install:" \
     $HEIGHT $WIDTH $LIST_HEIGHT \
-    1 "[Basic software] (neofetch, bmon, git, tree)" ON \
+    1 "[Basic software] (neofetch, btop, git, tree)" ON \
     2 "[QEMU Guest Agent] (qemu-guest-agent)" ON \
     3 "[Automatic updates] (unattended-upgrades)" ON \
     4 "[Docker] (Engine, CLI, containerd)" OFF \
