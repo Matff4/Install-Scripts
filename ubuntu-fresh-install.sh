@@ -5,19 +5,21 @@
 
 set -euo pipefail
 
-# ─── 1) Silent APT update & upgrade ─────────────────────────────────────────────
-apt-get update  -y > /dev/null 2>&1
-apt-get upgrade -y > /dev/null 2>&1
-
-# ─── 2) Ensure dialog is installed ───────────────────────────────────────────────
-if ! command -v dialog &>/dev/null; then
-  apt-get install -y dialog > /dev/null 2>&1
-fi
-
-# ─── 3) Helpers ──────────────────────────────────────────────────────────────────
+# ─── 1) Helpers ──────────────────────────────────────────────────────────────────
 GREEN=$(tput setaf 2); BLUE=$(tput setaf 4); RESET=$(tput sgr0)
 print_success() { echo "${GREEN}[✓]${RESET} $1"; }
 print_info() { echo "${BLUE}[?]${RESET} $1"; }
+
+# ─── 2) Silent APT update & upgrade ─────────────────────────────────────────────
+print_info "Updating software..."
+apt-get update  -y > /dev/null 2>&1
+apt-get upgrade -y > /dev/null 2>&1
+print_success "Software updated."
+
+# ─── 3) Ensure dialog is installed ───────────────────────────────────────────────
+if ! command -v dialog &>/dev/null; then
+  apt-get install -y dialog > /dev/null 2>&1
+fi
 
 # ─── 4) Installer functions ──────────────────────────────────────────────────────
 install_basic_software() {
