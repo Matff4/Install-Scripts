@@ -52,44 +52,48 @@ install_auto_updates() {
   print_info "Enabling automatic apt updates..."
   # Ensure apt lists are fresh to get metadata for all repos
   apt-get update > /dev/null 2>&1
+  # Purge first to ensure a clean default config file on install
+  apt-get purge -y unattended-upgrades > /dev/null 2>&1
   apt-get install -y unattended-upgrades apt-listchanges > /dev/null 2>&1
+
+  # This step may not be necessary if the purge/install works, but is safe to keep.
   dpkg-reconfigure --frontend noninteractive unattended-upgrades > /dev/null 2>&1
 
   local CONFIG_FILE="/etc/apt/apt.conf.d/50unattended-upgrades"
 
-  # --- Part 1: Ensure standard OS updates are enabled in Origins-Pattern ---
+  # --- Part 1: Enable standard OS updates in Origins-Pattern ---
   print_info "Enabling standard OS updates via Origins-Pattern..."
-  # This uncomments the default lines for security and standard updates.
-  # It's safe to run even if they are already uncommented.
+  # Uncomment the default lines for security and standard updates.
   sed -i -E 's#^//\s*("origin=.*-security.*);#\1;#' "$CONFIG_FILE"
   sed -i -E 's#^//\s*("origin=.*-updates.*);#\1;#' "$CONFIG_FILE"
 
-  # --- Part 2: Dynamically add all other configured repositories ---
+  # --- Part 2: Explicitly disable proposed updates for stability ---
+  print_info "Disabling proposed-updates..."
+  # Finds any active 'proposed-updates' line and comments it out.
+  # This is idempotent - running it multiple times won't break the file.
+  sed -i -E 's/^(\s*".*proposed-updates.*);/\/\/ \1;/' "$CONFIG_FILE"
+
+  # --- Part 3: Dynamically add all other configured repositories ---
   print_info "Scanning for third-party repositories to add to Origins-Pattern..."
   
   # Loop through all Release files to find Origin and Suite info
   for release_file in /var/lib/apt/lists/*Release; do
     [ -f "$release_file" ] || continue
     
-    # Extract the necessary values
     local origin=$(grep -oP '^Origin: \K.*' "$release_file" | head -n1)
-    # The 'suite' variable will hold the codename (e.g., trixie, jammy, stable)
     local suite=$(grep -oP '^(Suite|Codename): \K.*' "$release_file" | head -n1)
 
     if [ -n "$origin" ] && [ -n "$suite" ]; then
-      # Construct the entry in the "Origins-Pattern" format
       local origin_pattern="\"origin=${origin},codename=${suite}\";"
       
-      # Check if the pattern already exists to avoid duplicates
       if ! grep -q -F "${origin_pattern}" "$CONFIG_FILE"; then
         print_info "Adding pattern: ${origin_pattern}"
-        # Insert the new pattern inside the Origins-Pattern block
         sed -i '/^Unattended-Upgrade::Origins-Pattern\s*{/a \        '"${origin_pattern}"'' "$CONFIG_FILE"
       fi
     fi
   done
 
-  # --- Part 3: Finalize and restart the service ---
+  # --- Part 4: Finalize and restart the service ---
   systemctl enable --now unattended-upgrades > /dev/null 2>&1
   systemctl restart unattended-upgrades
 
