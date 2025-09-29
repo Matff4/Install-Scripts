@@ -120,7 +120,7 @@ install_docker() {
 
 
 # ─── 5) Show checklist ───────────────────────────────────────────────────────────
-HEIGHT=15; WIDTH=75; LIST_HEIGHT=8
+HEIGHT=15; WIDTH=85; LIST_HEIGHT=8
 
 dialog --clear \
   --title "Ubuntu Fresh Setup" \
