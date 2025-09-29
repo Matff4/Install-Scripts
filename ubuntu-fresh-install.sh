@@ -24,8 +24,14 @@ fi
 # ─── 4) Installer functions ──────────────────────────────────────────────────────
 install_basic_software() {
   print_info "Installing basic software..."
+  apt-get remove -y \
+    vim-common \
+    vim-tiny \
+    > /dev/null 2>&1
+    
   apt-get install -y \
     fastfetch \
+    vim \
     btop \
     git \
     tree \
@@ -119,7 +125,7 @@ dialog --clear \
   --title "Ubuntu Fresh Setup" \
   --checklist "Select items to install:" \
     $HEIGHT $WIDTH $LIST_HEIGHT \
-    1 "[Basic software] (fastfetch, btop, git, tree, ncdu)" ON \
+    1 "[Basic software] (fastfetch, vim, btop, git, tree, ncdu)" ON \
     2 "[QEMU Guest Agent] (qemu-guest-agent)" ON \
     3 "[Automatic updates] (unattended-upgrades)" ON \
     4 "[Docker] (Engine, CLI, containerd)" OFF \
