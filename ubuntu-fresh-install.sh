@@ -50,41 +50,41 @@ install_qemu_guest_agent() {
 
 install_auto_updates() {
   print_info "Enabling automatic apt updates..."
+  # Ensure apt lists are fresh to get metadata for all repos
   apt-get update > /dev/null 2>&1
   apt-get install -y unattended-upgrades apt-listchanges > /dev/null 2>&1
   dpkg-reconfigure --frontend noninteractive unattended-upgrades > /dev/null 2>&1
 
   local CONFIG_FILE="/etc/apt/apt.conf.d/50unattended-upgrades"
 
-  # --- Part 1: Enable standard OS updates (security and regular) ---
-  print_info "Enabling standard OS updates..."
-  # This enables the primary non-security updates for your distribution
-  sed -i 's#//\s*"\${distro_id}:\${distro_codename}-updates";#"\${distro_id}:\${distro_codename}-updates";#' "$CONFIG_FILE"
+  # --- Part 1: Ensure standard OS updates are enabled in Origins-Pattern ---
+  print_info "Enabling standard OS updates via Origins-Pattern..."
+  # This uncomments the default lines for security and standard updates.
+  # It's safe to run even if they are already uncommented.
+  sed -i -E 's#^//\s*("origin=.*-security.*);#\1;#' "$CONFIG_FILE"
+  sed -i -E 's#^//\s*("origin=.*-updates.*);#\1;#' "$CONFIG_FILE"
 
   # --- Part 2: Dynamically add all other configured repositories ---
-  print_info "Scanning for and adding third-party repositories..."
+  print_info "Scanning for third-party repositories to add to Origins-Pattern..."
   
-  # Loop through all Release files downloaded by 'apt update'
-  # These files contain the "Origin" and "Suite" info we need.
+  # Loop through all Release files to find Origin and Suite info
   for release_file in /var/lib/apt/lists/*Release; do
-    # Skip files that are actually directories or don't exist
     [ -f "$release_file" ] || continue
-
-    # Extract Origin and Suite/Codename using grep.
-    # We prefer Suite but fall back to Codename.
+    
+    # Extract the necessary values
     local origin=$(grep -oP '^Origin: \K.*' "$release_file" | head -n1)
+    # The 'suite' variable will hold the codename (e.g., trixie, jammy, stable)
     local suite=$(grep -oP '^(Suite|Codename): \K.*' "$release_file" | head -n1)
 
-    # Proceed only if we found both an Origin and a Suite/Codename
     if [ -n "$origin" ] && [ -n "$suite" ]; then
-      # Construct the entry exactly as it should appear in the config
-      local allowed_origin="\"${origin}:${suite}\";"
-
-      # Check if this exact entry is already present in the Allowed-Origins block
-      if ! grep -q -F " ${allowed_origin}" "$CONFIG_FILE"; then
-        print_info "Adding source: ${origin}:${suite}"
-        # If not present, insert it before the closing bracket of the Allowed-Origins block
-        sed -i '/^Unattended-Upgrade::Allowed-Origins {/a \        '"${allowed_origin}"'' "$CONFIG_FILE"
+      # Construct the entry in the "Origins-Pattern" format
+      local origin_pattern="\"origin=${origin},codename=${suite}\";"
+      
+      # Check if the pattern already exists to avoid duplicates
+      if ! grep -q -F "${origin_pattern}" "$CONFIG_FILE"; then
+        print_info "Adding pattern: ${origin_pattern}"
+        # Insert the new pattern inside the Origins-Pattern block
+        sed -i '/^Unattended-Upgrade::Origins-Pattern\s*{/a \        '"${origin_pattern}"'' "$CONFIG_FILE"
       fi
     fi
   done
