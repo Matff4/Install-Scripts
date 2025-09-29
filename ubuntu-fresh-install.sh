@@ -43,12 +43,50 @@ install_qemu_guest_agent() {
 
 install_auto_updates() {
   print_info "Enabling automatic apt updates..."
+  apt-get update > /dev/null 2>&1
   apt-get install -y unattended-upgrades apt-listchanges > /dev/null 2>&1
   dpkg-reconfigure --frontend noninteractive unattended-upgrades > /dev/null 2>&1
+
+  local CONFIG_FILE="/etc/apt/apt.conf.d/50unattended-upgrades"
+
+  # --- Part 1: Enable standard OS updates (security and regular) ---
+  print_info "Enabling standard OS updates..."
+  # This enables the primary non-security updates for your distribution
+  sed -i 's#//\s*"\${distro_id}:\${distro_codename}-updates";#"\${distro_id}:\${distro_codename}-updates";#' "$CONFIG_FILE"
+
+  # --- Part 2: Dynamically add all other configured repositories ---
+  print_info "Scanning for and adding third-party repositories..."
+  
+  # Loop through all Release files downloaded by 'apt update'
+  # These files contain the "Origin" and "Suite" info we need.
+  for release_file in /var/lib/apt/lists/*Release; do
+    # Skip files that are actually directories or don't exist
+    [ -f "$release_file" ] || continue
+
+    # Extract Origin and Suite/Codename using grep.
+    # We prefer Suite but fall back to Codename.
+    local origin=$(grep -oP '^Origin: \K.*' "$release_file" | head -n1)
+    local suite=$(grep -oP '^(Suite|Codename): \K.*' "$release_file" | head -n1)
+
+    # Proceed only if we found both an Origin and a Suite/Codename
+    if [ -n "$origin" ] && [ -n "$suite" ]; then
+      # Construct the entry exactly as it should appear in the config
+      local allowed_origin="\"${origin}:${suite}\";"
+
+      # Check if this exact entry is already present in the Allowed-Origins block
+      if ! grep -q -F " ${allowed_origin}" "$CONFIG_FILE"; then
+        print_info "Adding source: ${origin}:${suite}"
+        # If not present, insert it before the closing bracket of the Allowed-Origins block
+        sed -i '/^Unattended-Upgrade::Allowed-Origins {/a \        '"${allowed_origin}"'' "$CONFIG_FILE"
+      fi
+    fi
+  done
+
+  # --- Part 3: Finalize and restart the service ---
   systemctl enable --now unattended-upgrades > /dev/null 2>&1
-  # Ensure all updates, not just security
-  sed -i 's@//\s*"\${distro_id}:\${distro_codename}";@"${distro_id}:${distro_codename}";@' /etc/apt/apt.conf.d/50unattended-upgrades
-  print_success "Automatic apt updates enabled and configured to install all updates."
+  systemctl restart unattended-upgrades
+
+  print_success "Automatic apt updates enabled for all configured sources."
 }
 
 install_docker() {
