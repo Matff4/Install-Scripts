@@ -37,6 +37,7 @@ install_basic_software() {
     tree \
     ncdu \
     bat \
+    nfs-common \
     > /dev/null 2>&1
   print_success "Basic software installed."
 }
@@ -130,7 +131,7 @@ dialog --clear \
   --title "Ubuntu Fresh Setup" \
   --checklist "Select items to install:" \
     $HEIGHT $WIDTH $LIST_HEIGHT \
-    1 "[Basic software] (fastfetch, vim, btop, git, tree, ncdu, batcat)" ON \
+    1 "[Basic software]" ON \
     2 "[QEMU Guest Agent] (qemu-guest-agent)" ON \
     3 "[Automatic updates] (unattended-upgrades)" ON \
     4 "[Docker] (Engine, CLI, containerd)" OFF \
